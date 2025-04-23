@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Classroom Configuration Advisor</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f7fa;
+        }
+        h1, h2 {
+            color: #2c3e50;
+        }
+        h1 {
+            text-align: center;
+            margin-bottom: 30px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #3498db;
+        }
+        .input-container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            margin-bottom: 30px;
+        }
+        #recomnquery {
+            width: 70%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 16px;
+        }
+        button {
+            background-color: #3498db;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            margin-left: 10px;
+            transition: background-color 0.3s;
+        }
+        button:hover {
+            background-color: #2980b9;
+        }
+        #result {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            white-space: pre-wrap;
+            font-family: monospace;
+        }
+        .section-title {
+            color: #3498db;
+            font-weight: bold;
+            margin-top: 20px;
+            margin-bottom: 10px;
+            font-size: 1.2em;
+        }
+        .highlight {
+            background-color: #f8f9fa;
+            padding: 15px;
+            border-left: 4px solid #3498db;
+            margin: 10px 0;
+        }
+        ul {
+            padding-left: 20px;
+        }
+        li {
+            margin-bottom: 8px;
+        }
+        .bullet-list {
+            list-style-type: none;
+            padding-left: 0;
+        }
+        .bullet-list li:before {
+            content: "•";
+            color: #3498db;
+            display: inline-block;
+            width: 1em;
+            margin-left: -1em;
+        }
+        .case-study {
+            background-color: #e8f4fc;
+            padding: 15px;
+            border-radius: 5px;
+            margin-top: 20px;
+        }
+        a {
+            color: #3498db;
+            text-decoration: none;
+        }
+        a:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <h1>Classroom Configuration Advisor</h1>
+    
+    <div class="input-container">
+        <h2>Enter your classroom query:</h2>
+        <input type="text" id="recomnquery" placeholder="e.g., 'biology lab setup' or 'grade 5 math classroom'"/>
+        <button onclick="getRecommendation()">Get Recommendation</button>
+    </div>
+    
+    <div id="result"></div>
+
+    <script>
+        function getRecommendation() {
+            var recomnquery_val = document.getElementById("recomnquery").value;
+            if (!recomnquery_val.trim()) {
+                alert("Please enter a query");
+                return;
+            }
+            
+            document.getElementById("result").innerHTML = "<p>Loading recommendation...</p>";
+            
+            fetch('/recommend', {                
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ recomnquery_val: recomnquery_val })
+            })
+            .then(response => response.json())
+            .then(data => {
+                // Process the response to create formatted HTML
+                const formattedOutput = formatRecommendation(data.result);
+                document.getElementById("result").innerHTML = formattedOutput;
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                document.getElementById("result").innerHTML = 
+                    "<p class='error'>Error getting recommendation. Please try again.</p>";
+            });
+        }
+
+        function formatRecommendation(text) {
+            // Split the text into lines
+            const lines = text.split('\n');
+            let html = '';
+            
+            lines.forEach(line => {
+                line = line.trim();
+                if (!line) return;
+                
+                // Handle section titles
+                if (line.startsWith('==========') && line.endsWith('==========')) {
+                    const title = line.replace(/==========/g, '').trim();
+                    html += `<h2 class="section-title">${title}</h2>`;
+                } 
+                // Handle bold sections
+                else if (line.startsWith('**') && line.endsWith('**')) {
+                    const content = line.replace(/\*\*/g, '').trim();
+                    html += `<div class="highlight"><strong>${content}</strong></div>`;
+                }
+                // Handle bullet points
+                else if (line.startsWith('•') || line.startsWith('⊛') || line.startsWith('»')) {
+                    if (!html.includes('<ul class="bullet-list">')) {
+                        html += '<ul class="bullet-list">';
+                    }
+                    html += `<li>${line}</li>`;
+                }
+                // Handle numbered lists
+                else if (/^\d+\./.test(line)) {
+                    if (!html.includes('<ol>')) {
+                        html += '<ol>';
+                    }
+                    html += `<li>${line.replace(/^\d+\./, '').trim()}</li>`;
+                }
+                // Handle case study
+                else if (line.includes('Case Study:')) {
+                    html += `<div class="case-study"><strong>Case Study:</strong> ${line.replace('Case Study:', '').trim()}</div>`;
+                }
+                // Handle links
+                else if (line.includes('[Reference](')) {
+                    const linkText = line.match(/\[Reference\]\((.*?)\)/);
+                    if (linkText) {
+                        html += `<p><a href="${linkText[1]}" target="_blank">Read the reference study</a></p>`;
+                    }
+                }
+                // Handle regular paragraphs
+                else {
+                    // Close any open lists
+                    if (html.includes('<ul') && !html.includes('</ul>')) {
+                        html += '</ul>';
+                    }
+                    if (html.includes('<ol') && !html.includes('</ol>')) {
+                        html += '</ol>';
+                    }
+                    
+                    if (line.startsWith('- ')) {
+                        html += `<p>${line}</p>`;
+                    } else {
+                        html += `<p>${line}</p>`;
+                    }
+                }
+            });
+            
+            // Close any remaining open tags
+            if (html.includes('<ul') && !html.includes('</ul>')) {
+                html += '</ul>';
+            }
+            if (html.includes('<ol') && !html.includes('</ol>')) {
+                html += '</ol>';
+            }
+            
+            return html;
+        }
+    </script>
+</body>
+</html>
